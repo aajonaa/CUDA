@@ -4,7 +4,7 @@
 
 #define VECTOR_SIZE 100000000 // Change this value to modify the vector size
 
-__device__ double atomicAddDoubleDouble(double* address, double val) {
+__device__ double atomicAddDouble(double* address, double val) {
     unsigned long long int* address_as_ull = (unsigned long long int*)address;
     unsigned long long int old = *address_as_ull, assumed;
 
