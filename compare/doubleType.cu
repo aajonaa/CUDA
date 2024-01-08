@@ -97,13 +97,15 @@ int main() {
     double cpu_time = ((double)(cpu_end - cpu_start)) / CLOCKS_PER_SEC * 1000.0; // in milliseconds
 
     // CUDA initialization and memory allocation for global memory version
-    double *dev_a, *dev_b, *dev_resultGlobalMemory;
+    double *dev_a, *dev_b, *dev_resultGlobalMemory, *dev_resultSharedMemory;
     cudaMalloc((void**)&dev_a, VECTOR_SIZE * sizeof(double));
     cudaMalloc((void**)&dev_b, VECTOR_SIZE * sizeof(double));
     cudaMalloc((void**)&dev_resultGlobalMemory, sizeof(double));
+    cudaMalloc((void**)&dev_resultSharedMemory, sizeof(double)); // Allocate memory for shared memory version
     cudaMemcpy(dev_a, vectorA, VECTOR_SIZE * sizeof(double), cudaMemcpyHostToDevice);
     cudaMemcpy(dev_b, vectorB, VECTOR_SIZE * sizeof(double), cudaMemcpyHostToDevice);
     cudaMemset(dev_resultGlobalMemory, 0, sizeof(double));
+    cudaMemset(dev_resultSharedMemory, 0, sizeof(double)); // Initialize result memory for shared memory version
 
     int blockSize = 256;
     int numBlocks = (VECTOR_SIZE + blockSize - 1) / blockSize;
@@ -123,10 +125,8 @@ int main() {
     // CUDA initialization and memory allocation for shared memory version
     cudaMalloc((void**)&dev_a, VECTOR_SIZE * sizeof(double));
     cudaMalloc((void**)&dev_b, VECTOR_SIZE * sizeof(double));
-    cudaMalloc((void**)&dev_resultSharedMemory, sizeof(double));
     cudaMemcpy(dev_a, vectorA, VECTOR_SIZE * sizeof(double), cudaMemcpyHostToDevice);
     cudaMemcpy(dev_b, vectorB, VECTOR_SIZE * sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemset(dev_resultSharedMemory, 0, sizeof(double));
 
     // Timing for shared memory version
     clock_t shared_start = clock();
