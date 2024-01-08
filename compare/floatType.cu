@@ -13,7 +13,7 @@ float dotProductCPU(float* a, float* b) {
     return result;
 }
 
-// CUDA kernel to calculate dot product using global memory
+// CUDA kernel to calculate dot product using global memory for float arrays
 __global__ void dotProductGlobalMemory(float* a, float* b, float* result) {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
     float tempResult = 0.0f;
@@ -26,7 +26,7 @@ __global__ void dotProductGlobalMemory(float* a, float* b, float* result) {
     atomicAdd(result, tempResult);
 }
 
-// CUDA kernel to calculate dot product using shared memory
+// CUDA kernel to calculate dot product using shared memory for float arrays
 __global__ void dotProductSharedMemory(float* a, float* b, float* result) {
     __shared__ float temp[256]; // Shared memory for each block
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -43,13 +43,11 @@ __global__ void dotProductSharedMemory(float* a, float* b, float* result) {
     __syncthreads();
 
     // Reduction in shared memory
-    int i = blockDim.x / 2;
-    while (i != 0) {
+    for (int i = blockDim.x / 2; i > 0; i >>= 1) {
         if (localIndex < i) {
             temp[localIndex] += temp[localIndex + i];
         }
         __syncthreads();
-        i /= 2;
     }
 
     // Store result to global memory
@@ -57,8 +55,6 @@ __global__ void dotProductSharedMemory(float* a, float* b, float* result) {
         atomicAdd(result, temp[0]);
     }
 }
-
-
 
 int main() {
     srand(time(NULL)); // Seed for random number generation
@@ -88,39 +84,42 @@ int main() {
     double cpu_time = ((double)(cpu_end - cpu_start)) / CLOCKS_PER_SEC * 1000.0; // in milliseconds
 
     // Global memory version timing
-    float *dev_a, *dev_b, *dev_result;
+    float *dev_a, *dev_b, *dev_resultGlobalMemory;
     cudaMalloc((void**)&dev_a, VECTOR_SIZE * sizeof(float));
     cudaMalloc((void**)&dev_b, VECTOR_SIZE * sizeof(float));
-    cudaMalloc((void**)&dev_result, sizeof(float));
+    cudaMalloc((void**)&dev_resultGlobalMemory, sizeof(float));
     cudaMemcpy(dev_a, vectorA, VECTOR_SIZE * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(dev_b, vectorB, VECTOR_SIZE * sizeof(float), cudaMemcpyHostToDevice);
 
     clock_t global_start = clock();
-    dotProductGlobalMemory<<<1, 1>>>(dev_a, dev_b, dev_result);
-    cudaMemcpy(resultGlobalMemory, dev_result, sizeof(float), cudaMemcpyDeviceToHost);
+    dotProductGlobalMemory<<<1, 256>>>(dev_a, dev_b, dev_resultGlobalMemory);
+    cudaDeviceSynchronize();
+    cudaMemcpy(resultGlobalMemory, dev_resultGlobalMemory, sizeof(float), cudaMemcpyDeviceToHost);
     clock_t global_end = clock();
     double global_time = ((double)(global_end - global_start)) / CLOCKS_PER_SEC * 1000.0; // in milliseconds
 
     cudaFree(dev_a);
     cudaFree(dev_b);
-    cudaFree(dev_result);
+    cudaFree(dev_resultGlobalMemory);
 
     // Shared memory version timing
+    float *dev_resultSharedMemory;
+    cudaMalloc((void**)&dev_resultSharedMemory, sizeof(float));
     cudaMalloc((void**)&dev_a, VECTOR_SIZE * sizeof(float));
     cudaMalloc((void**)&dev_b, VECTOR_SIZE * sizeof(float));
-    cudaMalloc((void**)&dev_result, sizeof(float));
     cudaMemcpy(dev_a, vectorA, VECTOR_SIZE * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(dev_b, vectorB, VECTOR_SIZE * sizeof(float), cudaMemcpyHostToDevice);
 
     clock_t shared_start = clock();
-    dotProductSharedMemory<<<1, 1>>>(dev_a, dev_b, dev_result);
-    cudaMemcpy(resultSharedMemory, dev_result, sizeof(float), cudaMemcpyDeviceToHost);
+    dotProductSharedMemory<<<1, 256>>>(dev_a, dev_b, dev_resultSharedMemory);
+    cudaDeviceSynchronize();
+    cudaMemcpy(resultSharedMemory, dev_resultSharedMemory, sizeof(float), cudaMemcpyDeviceToHost);
     clock_t shared_end = clock();
     double shared_time = ((double)(shared_end - shared_start)) / CLOCKS_PER_SEC * 1000.0; // in milliseconds
 
     cudaFree(dev_a);
     cudaFree(dev_b);
-    cudaFree(dev_result);
+    cudaFree(dev_resultSharedMemory);
 
     // Print timing results
     printf("CPU version time: %f milliseconds\n", cpu_time);
