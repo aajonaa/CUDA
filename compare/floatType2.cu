@@ -57,11 +57,6 @@ __global__ void dotProductSharedMemory(float* a, float* b, float* result) {
 }
 
 int main() {
-
-    // Calculate number of blocks and threads per block
-    int blockSize = 256;
-    int numBlocks = (VECTOR_SIZE + blockSize - 1) / blockSize;
-
     srand(time(NULL)); // Seed for random number generation
 
     float *vectorA, *vectorB, *resultCPU, *resultGlobalMemory, *resultSharedMemory;
@@ -89,17 +84,18 @@ int main() {
     double cpu_time = ((double)(cpu_end - cpu_start)) / CLOCKS_PER_SEC * 1000.0; // in milliseconds
 
     // Global memory version timing
-    // Use more blocks and threads
+    float *dev_a, *dev_b, *dev_resultGlobalMemory;
+    cudaMalloc((void**)&dev_a, VECTOR_SIZE * sizeof(float));
+    cudaMalloc((void**)&dev_b, VECTOR_SIZE * sizeof(float));
+    cudaMalloc((void**)&dev_resultGlobalMemory, sizeof(float));
+    cudaMemcpy(dev_a, vectorA, VECTOR_SIZE * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_b, vectorB, VECTOR_SIZE * sizeof(float), cudaMemcpyHostToDevice);
+
+    int blockSize = 256;
+    int numBlocks = (VECTOR_SIZE + blockSize - 1) / blockSize;
+
     clock_t global_start = clock();
     dotProductGlobalMemory<<<numBlocks, blockSize>>>(dev_a, dev_b, dev_resultGlobalMemory);
-    cudaDeviceSynchronize();
-    cudaMemcpy(resultGlobalMemory, dev_resultGlobalMemory, sizeof(float), cudaMemcpyDeviceToHost);
-    clock_t global_end = clock();
-    double global_time = ((double)(global_end - global_start)) / CLOCKS_PER_SEC * 1000.0; // in milliseconds
-
-
-    clock_t global_start = clock();
-    dotProductGlobalMemory<<<1, 256>>>(dev_a, dev_b, dev_resultGlobalMemory);
     cudaDeviceSynchronize();
     cudaMemcpy(resultGlobalMemory, dev_resultGlobalMemory, sizeof(float), cudaMemcpyDeviceToHost);
     clock_t global_end = clock();
@@ -110,16 +106,15 @@ int main() {
     cudaFree(dev_resultGlobalMemory);
 
     // Shared memory version timing
-    // Use more blocks and threads
-    clock_t shared_start = clock();
-    dotProductSharedMemory<<<numBlocks, blockSize>>>(dev_a, dev_b, dev_resultSharedMemory);
-    cudaDeviceSynchronize();
-    cudaMemcpy(resultSharedMemory, dev_resultSharedMemory, sizeof(float), cudaMemcpyDeviceToHost);
-    clock_t shared_end = clock();
-    double shared_time = ((double)(shared_end - shared_start)) / CLOCKS_PER_SEC * 1000.0; // in milliseconds
+    float *dev_resultSharedMemory;
+    cudaMalloc((void**)&dev_resultSharedMemory, sizeof(float));
+    cudaMalloc((void**)&dev_a, VECTOR_SIZE * sizeof(float));
+    cudaMalloc((void**)&dev_b, VECTOR_SIZE * sizeof(float));
+    cudaMemcpy(dev_a, vectorA, VECTOR_SIZE * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_b, vectorB, VECTOR_SIZE * sizeof(float), cudaMemcpyHostToDevice);
 
     clock_t shared_start = clock();
-    dotProductSharedMemory<<<1, 256>>>(dev_a, dev_b, dev_resultSharedMemory);
+    dotProductSharedMemory<<<numBlocks, blockSize>>>(dev_a, dev_b, dev_resultSharedMemory);
     cudaDeviceSynchronize();
     cudaMemcpy(resultSharedMemory, dev_resultSharedMemory, sizeof(float), cudaMemcpyDeviceToHost);
     clock_t shared_end = clock();
