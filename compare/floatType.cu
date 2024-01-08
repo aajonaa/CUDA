@@ -59,6 +59,7 @@ __global__ void dotProductSharedMemory(float* a, float* b, float* result) {
 }
 
 
+
 int main() {
     srand(time(NULL)); // Seed for random number generation
 
