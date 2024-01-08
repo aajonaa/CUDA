@@ -4,7 +4,7 @@
 
 #define VECTOR_SIZE 100000000 // Change this value to modify the vector size
 
-__device__ double atomicAdd(double* address, double val) {
+__device__ double atomicAddDoubleDouble(double* address, double val) {
     unsigned long long int* address_as_ull = (unsigned long long int*)address;
     unsigned long long int old = *address_as_ull, assumed;
 
@@ -27,20 +27,36 @@ double dotProductCPU(double* a, double* b) {
     return result;
 }
 
-// CUDA kernel to calculate dot product using global memory for double arrays
 __global__ void dotProductGlobalMemory(double* a, double* b, double* result) {
+    __shared__ double temp[256]; // Shared memory for each block
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    double tempResult = 0.0;
+    int localIndex = threadIdx.x;
 
+    double tempResult = 0.0;
     while (tid < VECTOR_SIZE) {
         tempResult += a[tid] * b[tid];
         tid += blockDim.x * gridDim.x;
     }
+    temp[localIndex] = tempResult;
 
-    atomicAdd(result, tempResult);
+    // Synchronize within the block
+    __syncthreads();
+
+    // Reduction in shared memory
+    for (int i = blockDim.x / 2; i > 0; i >>= 1) {
+        if (localIndex < i) {
+            temp[localIndex] += temp[localIndex + i];
+        }
+        __syncthreads();
+    }
+
+    // Store result to global memory with atomic operation
+    if (localIndex == 0) {
+        atomicAdd(result, temp[0]);
+    }
 }
 
-// CUDA kernel to calculate dot product using shared memory for double arrays
+
 __global__ void dotProductSharedMemory(double* a, double* b, double* result) {
     __shared__ double temp[256]; // Shared memory for each block
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -64,11 +80,12 @@ __global__ void dotProductSharedMemory(double* a, double* b, double* result) {
         __syncthreads();
     }
 
-    // Store result to global memory
+    // Store result to global memory with atomic operation
     if (localIndex == 0) {
         atomicAdd(result, temp[0]);
     }
 }
+
 
 int main() {
     srand(time(NULL)); // Seed for random number generation
