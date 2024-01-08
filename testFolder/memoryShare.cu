@@ -66,6 +66,12 @@ int main() {
     cudaMemcpy(dev_a, vectorA, VECTOR_SIZE * sizeof(double), cudaMemcpyHostToDevice);
     cudaMemcpy(dev_b, vectorB, VECTOR_SIZE * sizeof(double), cudaMemcpyHostToDevice);
 
+    // Create CUDA events for timing
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start);
+
     // Launch kernel
     dotProductCUDA<<<256, 256>>>(dev_a, dev_b, dev_result);
 
@@ -78,8 +84,13 @@ int main() {
         finalResult += result[i];
     }
 
-    // Printing the result
+    // Measure and print the execution time
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
     printf("Dot product: %f\n", finalResult);
+    printf("Execution time: %f milliseconds\n", milliseconds);
 
     // Free allocated memory
     free(vectorA);
