@@ -125,6 +125,7 @@ int main() {
     cudaFree(dev_resultSharedMemory);
 
     // Print timing results
+    printf("CPU version result time: %f milliseconds\n", cpu_time);
     printf("CPU version time: %f milliseconds\n", cpu_time);
     printf("Global memory version time: %f milliseconds\n", global_time);
     printf("Shared memory version time: %f milliseconds\n", shared_time);
