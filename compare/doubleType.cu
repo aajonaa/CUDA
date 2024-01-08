@@ -4,6 +4,20 @@
 
 #define VECTOR_SIZE 100000000 // Change this value to modify the vector size
 
+__device__ double atomicAdd(double* address, double val) {
+    unsigned long long int* address_as_ull = (unsigned long long int*)address;
+    unsigned long long int old = *address_as_ull, assumed;
+
+    do {
+        assumed = old;
+        old = atomicCAS(address_as_ull, assumed,
+                        __double_as_longlong(val + __longlong_as_double(assumed)));
+    } while (assumed != old);
+
+    return __longlong_as_double(old);
+}
+
+
 // CPU version for dot product calculation
 double dotProductCPU(double* a, double* b) {
     double result = 0.0;
