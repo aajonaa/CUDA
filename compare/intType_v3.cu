@@ -83,7 +83,62 @@ int main() {
     printf("CPU Dot Product Result: %d\n", cpuResult);
     printf("CPU Time: %f ms\n", cpu_time);
 
-    // ... (GPU versions calculation and result handling remain unchanged)
+    // Global memory version timing
+    int *dev_a, *dev_b, *dev_result;
+    cudaMalloc((void**)&dev_a, VECTOR_SIZE * sizeof(int));
+    cudaMalloc((void**)&dev_b, VECTOR_SIZE * sizeof(int));
+    cudaMalloc((void**)&dev_result, 256 * sizeof(int));
+    cudaMemcpy(dev_a, vectorA, VECTOR_SIZE * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_b, vectorB, VECTOR_SIZE * sizeof(int), cudaMemcpyHostToDevice);
+
+    cudaEvent_t global_start, global_stop;
+    cudaEventCreate(&global_start);
+    cudaEventCreate(&global_stop);
+    cudaEventRecord(global_start);
+
+    dotProductGlobalMemory<<<256, 256>>>(dev_a, dev_b, dev_result);
+
+    cudaMemcpy(result, dev_result, 256 * sizeof(int), cudaMemcpyDeviceToHost);
+
+    cudaEventRecord(global_stop);
+    cudaEventSynchronize(global_stop);
+    float global_milliseconds = 0;
+    cudaEventElapsedTime(&global_milliseconds, global_start, global_stop);
+
+    printf("Global Memory Dot Product Result: %d\n", result[0]);
+    printf("Global Memory Time: %f milliseconds\n", global_milliseconds);
+
+    cudaFree(dev_a);
+    cudaFree(dev_b);
+    cudaFree(dev_result);
+
+    // Shared memory version timing
+    cudaMalloc((void**)&dev_a, VECTOR_SIZE * sizeof(int));
+    cudaMalloc((void**)&dev_b, VECTOR_SIZE * sizeof(int));
+    cudaMalloc((void**)&dev_result, 256 * sizeof(int));
+    cudaMemcpy(dev_a, vectorA, VECTOR_SIZE * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_b, vectorB, VECTOR_SIZE * sizeof(int), cudaMemcpyHostToDevice);
+
+    cudaEvent_t shared_start, shared_stop;
+    cudaEventCreate(&shared_start);
+    cudaEventCreate(&shared_stop);
+    cudaEventRecord(shared_start);
+
+    dotProductSharedMemory<<<256, 256>>>(dev_a, dev_b, dev_result);
+
+    cudaMemcpy(result, dev_result, 256 * sizeof(int), cudaMemcpyDeviceToHost);
+
+    cudaEventRecord(shared_stop);
+    cudaEventSynchronize(shared_stop);
+    float shared_milliseconds = 0;
+    cudaEventElapsedTime(&shared_milliseconds, shared_start, shared_stop);
+
+    printf("Shared Memory Dot Product Result: %d\n", result[0]);
+    printf("Shared Memory Time: %f milliseconds\n", shared_milliseconds);
+
+    cudaFree(dev_a);
+    cudaFree(dev_b);
+    cudaFree(dev_result);
 
     // Free allocated memory
     free(vectorA);
